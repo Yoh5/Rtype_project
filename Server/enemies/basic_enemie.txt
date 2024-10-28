@@ -1,0 +1,2 @@
+TYPE_ENEMIE   SHOOT_TYPE   SHOOT_FREQ_MS  SHOOT_VELOCITY_X    SHOOT_VELOCITY_Y      POS_X   POST_Y   VELOCITY_X   VELOCITY_Y  FREQ_MS   ORIENTATION  CYCLE_START   CYCLE_END    DEGATS  HEALTH
+basic         fire3        3000           50                  0                     1900    RAND     70            0          4000      LEFT         1             5            40      150

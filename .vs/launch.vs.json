@@ -1,0 +1,12 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "r-type_client.exe (C:\\Users\\yoann\\OneDrive\\Desktop\\Lab\\B-CPP-500-COT-5-1-rtype-fitzgerald.adechian\\Release\\r-type_client.exe)",
+      "name": "r-type_client.exe (C:\\Users\\yoann\\OneDrive\\Desktop\\Lab\\B-CPP-500-COT-5-1-rtype-fitzgerald.adechian\\Release\\r-type_client.exe)"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+#pragma once
+    #include <optional>
+    #include <any>
+    #include <memory>
+    #include <vector>
+    #include <unordered_map>
+    #include <string>
+    #include <functional>
+    #include <algorithm>
+    #include <typeinfo>
+    #include <typeindex>
+    #include <iostream>
+    #include <queue>
+    #include <map>
+    #include "../Error/error.hpp"

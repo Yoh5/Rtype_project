@@ -1,0 +1,40 @@
+        if (data.id == MsgType::EntityList)
+        {
+            LOGGER("Received list");
+            std::vector<uint16_t> newl;
+            while (data.body.size() > 0) {
+                int16_t id;
+                data >> id;
+                newl.push_back(id);
+            }
+            for (auto each : newl)
+            {
+                if (std::find(_net_ids.begin(), _net_ids.end(), each) == _net_ids.end()) {
+                    _net_ids.push_back(each);
+                }
+            }
+            int i = 0;
+            for (auto each : _net_ids)
+            {
+                if (std::find(newl.begin(), newl.end(), each) == newl.end()) {
+                    deleteNetworkEntity(each);
+                    _net_ids.erase(_net_ids.begin()+i);
+                }
+                i++;
+            }
+        }
+        else if (data.id == MsgType::Info) {
+        LOGGER("received");
+        
+        int id = (static_cast<uint16_t> (data.body[1]) <<  8 ) | data.body[0];
+        int asset = data.body[2];
+        int orientation = data.body[3];
+        int x = (static_cast<uint16_t> (data.body[5]) <<  8 ) | data.body[4];
+        int y = (static_cast<uint16_t> (data.body[7]) <<  8 ) | data.body[6];
+
+        if (std::find(_net_ids.begin(), _net_ids.end(), id) == _net_ids.end()) {
+            createNetworkEntity(id, (Game::drawable)asset, x, y);
+        }
+        else       
+            updateNetworkEntity(id, x, y);        
+        }

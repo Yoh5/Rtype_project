@@ -1,0 +1,618 @@
+
+
+
+
+
+
+Epitech Cotonou                                               A. Aurel
+Request for Comments: 1337                                    A. Fitz
+Category: Standards Track                                     ?. Fidélia
+                                                              ?. Yoan
+                                                              M. Axel
+                                                              Epitech
+                                                              Octobre 2023
+
+                            RFC R-Type
+
+Status of this Memo
+
+   This document holds the authoritative specification for the 1337's RFC
+   related to the R-Type Game, encompassing the R-Type TCP Protocol and 
+   the R-Type UDP Protocol. Notably, R-Type constitutes a project deve-
+   loped during the third year at EPITECH. The distribution of this do-
+   cument is unrestricted, allowing for widespread access and dissemination.
+
+Table of Contents
+
+   1.   Introduction . . . . . . . . . . . . . . . . . . . . . . . . . 1 /
+   2.   Architecture  . . . . . . . . . . . . . . . . . . . . . .......2 /
+   3.   R-Type TCP Protocol  . . . . . . . . . . . . . . . . . . . . . ? /
+   3a.   Payload . . . . . . . . . . . . . . . . . . . . . . . . . . . ? /
+   3b.   Server connection . . . . . . . . . . . . . . . . . . . . . . ? /
+   3c.   InTheGame connection  . . . . . . . . . . . . . . . . . . . . ?
+   3d.   Game start  . . . . . . . . . . . . . . . . . . . . . . . . . ? /
+   4.   R-Type UDP Protocol  . . . . . . . . . . . . . . . . . . . . . ? 
+   4a.   Frames transmission . . . . . . . . . . . . . . . . . . . . . ? /
+   4b.   Player events . . . . . . . . . . . . . . . . . . . . . . . . ? /
+
+
+
+1.  Introduction
+
+The objective of the R-Type project is to develop an online multiplayer 
+rendition of the renowned R-Type game from 1987. Throughout this document,
+the terms "MUST," "MUST NOT," "REQUIRED," "SHALL," "SHALL NOT," "SHOULD,"
+"SHOULD NOT," "RECOMMENDED," "MAY," and "OPTIONAL" should be understood in
+accordance with the definitions provided in RFC 2119.
+
+2.  Architecture
+
+The R-Type architecture adheres to the traditional client-server model for
+gaming. In this setup, the entirety of the game engine resides within the
+server. Clients establish a connection with the server by utilizing our RFC
+protocol. Once connected, clients are presented with the option to either 
+create a user or join an existing one.
+
+It's important to note that multiple clients can concurrently connect to the
+server, enabling a multiplayer experience. Subsequently, the client respon-
+sible for creating the user can initiate a new game. Remarkably, the server
+has the capability to manage and run multiple games simultaneously, ensuring
+a dynamic and engaging gaming environment.
+
+
+0x4n6                     Standards Track                     [Page 1]
+
+RFC 1337                    RFC R-Type               Octobre 2023
+
+
+3.  TCP flux transmission
+
+   Prior to the initiation of the game, all communication between the 
+   client and server is governed by the R-Type TCP Protocol.
+
+   3a.  Payload
+
+   Each transmission using the R-Type TCP Protocol MUST include a pay-
+   load that comprises the following three data components:
+
+      struct Packet {
+         MsgType id;
+         std::vector<uint8_t> body;
+         size_t size() const
+         {
+               return body.size();
+         }
+
+         friend std::ostream& operator<<(std::ostream& os, const Packet& msg)
+         {
+            os << "ID:" << int(msg.id) << " Size:" << msg.body.size();
+            return os;
+         }
+
+         template<typename DataType>
+         friend Packet& operator<<(Packet& msg, const DataType& data)
+         {
+            size_t i = msg.body.size();
+            msg.body.resize(msg.body.size() + sizeof(DataType));
+            std::memcpy(msg.body.data() + i, &data, sizeof(DataType));
+            return msg;
+         }
+
+         template<typename DataType>
+         friend Packet& operator>>(Packet& msg, DataType& data)
+         {
+            size_t i = msg.body.size() - sizeof(DataType);
+            std::memcpy(&data, msg.body.data() + i, sizeof(DataType));
+            msg.body.resize(i);
+            return msg;
+         }
+      };
+
+      Where Packet is an element of the ACTION enumeration
+      (described below) representing the action to do with the payload,
+      DATA_LENGHT is the size (in bytes) of CONTENTS, and CONTENTS is the data to
+      be processed.
+
+   The possible values for MsgType are defined as enum:
+
+
+   enum class MsgType : uint8_t
+   {
+      GetAllTotalPackets,
+      TotalPackets,
+      OK,
+      KO,
+      Info,
+      Fire,
+      MoveRight,
+      MoveLeft,
+      MoveUp,
+      MoveDown,
+      UnvalidMessage,
+      ConnectionRequire,
+      ConnectionRequest,
+      ConnectionRefused,
+      ConnecionEstablished,
+      AdminConnectionRequest,
+      AdminConnectionEstablished,
+      AdminConnectionRefused,
+      CreateRoom,
+      DeleteRoom,
+      RoomFull,
+      JoinRoom,
+      LeaveRoom,
+      ListRoom,
+      ListPlayerReady,
+      GameStart,
+      RoomSendMessage,
+      RoomNewMessage,
+      RoomList,
+      Ready,
+      DeconnectionRequest,
+      ListConnectedUser,
+      ConnectedUsers,
+      InfoUser,
+      UserInfo,
+      InfoRoom,
+      RoomInfo,
+      AdminListRoom,
+      BanUser,
+      DeBan,
+      ListUserBanned,
+      UserBannedList,
+      UserBanned,
+      SETMAXROOM,
+      End,
+   };
+
+   These enumeration constants correspond to specific actions to be 
+   taken or statuses to be reported.
+
+   In this structure, INPUT is an enum class of type uint8_t, signifying
+   the action associated with the payload. DATA_LENGTH specifies the size 
+   of CONTENTS in bytes, while CONTENTS contains the data to be handled.
+
+   To transmit a payload, each data component MUST be written to the TCP 
+   socket in the following order: INPUT, DATA_LENGTH, and then CONTENTS.
+
+   If CONTENTS is empty, DATA_LENGTH MUST be set to 0. Upon receiving a 
+   payload, the recipient MUST first read the INPUT as an enum type, followed
+   by the subsequent 4 bytes (indicating DATA_LENGTH), and then read the 
+   CONTENTS which is DATA_LENGTH bytes long.
+
+   It is crucial that the total payload size does NOT exceed 1024 bytes, 
+   ensuring that the combined size of all components does not surpass 1016 
+   bytes for the payload to be considered valid.
+
+   Additionally, the Net::Packet structure and the ownedPacket within the 
+   Net namespace offer a framework for handling packets in the protocol.
+   Operators are defined to facilitate serialization and deserialization 
+   of data types into the packet's body for transmission over the network.
+
+   Importantly, the total payload size MUST NOT exceed 1024 bytes, en-
+   suring that the combined size of all components does not surpass 1016
+   bytes.
+
+
+
+
+
+
+
+
+
+0x4n6                     Standards Track                     [Page 2]
+
+RFC 1337                    RFC R-Type               Octobre 2023
+
+
+   3b.  Server connection
+
+      Establishing a connection to the server is a crucial step, and it
+      involves specific functionality, specifications, and examples:
+
+      Functionality:
+
+      To connect to the server, a client MUST send a payload that inclu-
+      des the following components:
+
+      INPUT: Set to "CONNECT," indicating the intention to establish a
+      connection.
+      DATA_LENGTH: The length (in bytes) of the PLAYER_NAME, which is
+      chosen by the client's user.
+      CONTENTS: The PLAYER_NAME chosen by the client's user.
+      Upon successful connection, the server MUST respond with a pay-
+      load containing:
+
+      INPUT: Set to "OK," confirming a successful connection.
+      The server MAY include additional information in the CONTENTS
+      field of the response payload if needed.
+
+      In the event of a connection failure, the server MUST respond
+      with a payload containing:
+
+      INPUT: Set to "KO," indicating an unsuccessful connection attempt.
+      Similar to the success response, the server MAY include additional
+      information in the CONTENTS field to provide details about the fai-
+      lure.
+
+      Specification:
+
+      When a client wants to connect to the server, it follows these rules:
+
+      It constructs a payload with INPUT set to "CONNECT."
+      It calculates the length of the PLAYER_NAME in bytes and sets DATA_-
+      LENGTH accordingly.
+      It populates CONTENTS with the chosen PLAYER_NAME.
+      The payload is then transmitted to the server using the R-Type TCP
+      Protocol. The server, in turn, processes the client's request:
+
+      If the connection is successful, the server responds with a payload
+      containing INPUT set to "OK."
+      In the case of a connection failure, the server responds with INPUT
+      set to "KO."
+      
+      Example:
+
+      Suppose a client user wants to connect to the server with the chosen
+      PLAYER_NAME "JohnDoe." The client would construct a payload as follows:
+
+      INPUT: "CONNECT"
+      DATA_LENGTH: 7 (the length of "JohnDoe" in bytes)
+      CONTENTS: "JohnDoe"
+      After sending this payload to the server, the server would respond with:
+
+      INPUT: "OK" (if successful) or "KO" (if unsuccessful)
+      If successful, the server might also provide additional information in
+      CONTENTS, such as a welcome message or player information.
+
+   3c. Admin Client Panel
+
+      This section outlines the implementation and functionality of
+      the Admin Client Panel within the R-Type TCP Protocol. The 
+      panel is intended for administrative users to manage and interact
+      with the server in a controlled environment.
+      
+      Startup Sequence:
+      
+      The Admin Server is initiated with a welcoming message,
+      "Starting Admin Server...", followed by the instantiation of 
+      the Net::AdminServer object on port 5557. The server attempts
+      to establish a connection to the main server using provided
+      command-line arguments, which should represent the IP address
+      and port number, respectively. If the connection fails, an
+      error message is displayed, and the program exits.
+      
+      Command-Line Interface (CLI):
+      
+      The Admin Panel provides a command-line interface (CLI) for
+      real-time interaction. Upon successful initiation, the admin
+      user is prompted with admin-cli > to enter commands. The input
+      is parsed into a vector of strings, where each string represents
+      a command or argument.
+      
+      Command Processing:
+      
+      The CLI supports multiple commands:
+      
+      stop: Terminates the admin panel.
+      connect: Establishes a login to the server with credentials.
+      listconnecteduser: Retrieves a list of currently connected users.
+      getuserinfo <userid>: Obtains information about a specific user by user ID.
+      banuser <userID>: Issues a ban on a user, preventing access to the server.
+      debanuser <userIP>: Lifts a ban from a user, restoring server access.
+      listuserbanned: Lists all users who have been banned.
+      getinforoom <roomID>: Fetches details about a particular room using its ID.
+      listroom: Lists all available rooms on the server.
+      allpaquets: Requests the total number of packets managed by the server.
+      setmaxroom <newMax>: Sets the maximum allowed rooms on the server,
+      with constraints for valid range checks.
+      
+      Error Handling:
+
+      Each command that requires arguments is safeguarded with usage instructions.
+      If the necessary arguments are not supplied or are incorrect, a usage message
+      is displayed to guide the admin user. This includes type checking and range
+      validation for numerical inputs to ensure robustness of the admin operations.
+
+      Integration with the Server:
+
+      The admin commands interact directly with the server's administrative
+      functions, encapsulating network operations within the Net::AdminServer
+      class methods. These methods handle the actual communication with the
+      server, applying the admin user's instructions.
+
+      Packet Structure:
+
+      Not explicitly detailed in this summary is the packet structure used to
+      transmit these commands to the server. It is implied that the Net::Packet
+      structure and related serialization mechanisms are utilized to package
+      these commands into a suitable format for TCP transmission.
+
+      Graceful Termination:
+
+      The admin panel operates in a continuous loop until the stop command is
+      issued. Upon exiting the loop, the admin server should close down gracefully,
+      ensuring that all resources are freed and that the server is informed of the
+      admin session termination.
+
+      This summary is intended to provide a high-level overview of the Admin Client
+      Panel functionality within the R-Type TCP Protocol documentation. For a full
+      understanding, implementers should refer to the complete section detailing
+      each function and command in the admin server class definition.
+   
+   3d. InTheGame Connection
+
+      The following segment provides guidance on how to establish a connection
+      to the game server within the context of the game client application.
+
+      Launching the Game Client:
+
+      To initiate the connection process, the user must start the game client
+      application from the command line by executing the ./client command. This
+      action will launch the game client interface, which is the first step in
+      connecting to the game server.
+
+      Entering Connection Details:
+
+      Upon starting the client application, the user will be prompted to enter
+      the necessary connection details to join the game server. The required
+      information includes:
+
+      Server IP Address: The unique network address of the game server that the
+      user intends to connect to. It must be a valid IP address where the game
+      server is actively running and accepting connections.
+
+      Server Port: The network port on which the game server is listening. This
+      should match the port configured on the server side for the game connections.
+
+      Username: A chosen identifier that the user will be known by within the game.
+      This should be unique to the user and will be used for all in-game interactions
+      and identification.
+
+      Connection Process:
+
+      Once the user provides the IP address, port, and username, the client will
+      attempt to establish a TCP connection to the game server. The process is as
+      follows:
+
+      The client uses the provided IP and port to open a socket connection to the server.
+      After successfully opening the socket, the client sends a connection request
+      packet that includes the username to the server.
+      The server then responds to this request, either accepting the connection and
+      allowing the client to proceed into the game environment or rejecting the request
+      with an appropriate error message (e.g., if the username is already in use or if
+      the server is at full capacity).
+      Error Handling:
+
+      In case of connection failure due to incorrect details or server unavailability,
+      the user should be informed with a clear and concise error message. The client
+      application should then offer the user the opportunity to re-enter the connection
+      details or to exit the game client.
+
+      User Interface Considerations:
+
+      The game client should provide an intuitive and user-friendly interface for
+      entering connection details. It could be text-based for simplicity or include
+      graphical elements if the client's infrastructure allows. User input should be
+      validated before attempting to connect to ensure that any errors can be addressed
+      promptly without unnecessary connection attempts.
+
+   3e.  Game start
+
+      Initiating a game within the R-Type system involves specific conditions,
+      functionalities, and communication protocols:
+
+      Functionality:
+
+      To commence a game, the client MUST be present within a InTheGame.
+      The client initiating the game MAY or MAY NOT be the creator of the
+      InTheGame.
+
+      To initiate the game, the client MUST send a payload to the server with
+      the following configuration:
+
+      INPUT: Set to "READY"
+      Upon a successful request, to initiate the game, the server MUST transmit
+      a payload to ALL clients connected to the game InTheGame, which includes:
+
+      INPUT: Set to "START"
+      The server MAY include additional information in the CONTENTS field of the
+      response payload if required.
+
+      In the event of an unsuccessful request, the server MUST respond to the
+      client with a payload containing:
+
+      INPUT: Set to "KO"
+      The server MAY include supplementary information in the CONTENTS field to
+      provide details about the failure.
+
+      Additional Details:
+
+      The game initiation process allows any client within the InTheGame to trigger
+      the start of the game, promoting flexibility and participation.
+
+      The server communicates the game's readiness to ALL connected clients in
+      the InTheGame, ensuring synchronized game commencement.
+
+      The server has the option to include relevant details or information in
+      the payload CONTENTS, enhancing the user experience and providing context.
+
+      In the event of an unsuccessful initiation request, the server provides
+      feedback to the client using the "KO" input, allowing for appropriate
+      handling of any issues that may arise.
+
+      This mechanism ensures that game sessions can be seamlessly initiated,
+      offering players an engaging and cooperative multiplayer experience.
+
+      In summary, the game start procedure guarantees a smooth transition from
+      InTheGame preparation to actual gameplay, promoting inclusivity and user-friendly
+      interactions.
+
+
+0x4n6                     Standards Track                     [Page 5]
+
+RFC 1337                    RFC R-Type               Octobre 2023
+
+
+4.  R-Type UDP Protocol
+         
+         After the game has been initiated, all subsequent client-
+         server communications are facilitated through the utiliza-
+         tion of the R-Type UDP Protocol.
+
+
+
+
+   4a.  Frames transmission
+
+      This section of the RFC outlines the procedures and algorithms for
+      the serialization and compression of packets in the network protocol
+      for a gaming application.
+
+      Serialization:
+
+      Serialization refers to the process of converting a data structure into a 
+      ormat that can be easily transmitted over a network or stored in a file.
+      The Serializer class is responsible for transforming Packet objects into
+      a linear sequence of bytes and vice versa.
+
+      Serialization Mechanism:
+
+      Each packet begins with an action code that identifies the type of packet.
+      Depending on the action, different packet structures (such as CONNECT,
+      CREATE, LIST, SHOOT, POWERUP) are appended to the result.
+      For instance, CONNECT actions include the username, while SHOOT actions
+      include bullet type and coordinates.
+      The coordinates are serialized using a custom method that stores the 16-bit
+      integer in two bytes.
+      Deserialization Mechanism:
+
+      The deserialization process inverses serialization, reconstructing the Packet
+      object from a sequence of bytes.
+      It starts by determining the action code and then reconstructing the packet
+      structure accordingly.
+      deserializeInt16 is a utility method used to reconstruct a 16-bit integer
+      from two bytes.
+      Compression:
+
+      Compression reduces the size of the serialized data to minimize bandwidth
+      usage. The Huffman class implements Huffman coding, a popular method of
+      lossless data compression.
+
+      Huffman Tree Construction:
+
+      Frequencies of characters are calculated from the input.
+      A priority queue is used to build the Huffman tree based on the frequencies,
+      with lower frequency characters having higher tree levels.
+      The tree is constructed by merging two nodes with the least frequency into a
+      new node until one root node is left, representing the Huffman tree.
+      Code Generation:
+
+      The Huffman tree is then traversed to generate unique binary codes for each
+      character based on their path from the root to the leaf node.
+      Characters encountered less frequently will have longer codes, while common
+      characters will have shorter codes.
+      Integration of Serialization with Compression:
+
+      After a Packet object is serialized into a vector of bytes, the Huffman algorithm
+      can be applied to the vector to compress it further.
+      The compressed data can then be transmitted over the network.
+      Upon reception, the data can be decompressed using the Huffman algorithm, and then
+      the original Packet object can be reconstructed through deserialization.
+      Considerations:
+
+      It is important to note that both serialization and compression processes must be
+      deterministic and reversible to ensure that the original data can be perfectly
+      reconstructed from the compressed form.
+      Error checking mechanisms, such as checksums or hash functions, may be used in
+      conjunction with serialization and compression to detect and correct any corruption
+      in the data.
+      The Huffman tree or equivalent decoding information must be transmitted along with
+      the compressed data, or it must be predefined and known by both the sender and receiver.
+      This part of the RFC defines the structure and behavior of serialization and compression,
+      ensuring efficient data transmission in the gaming application's protocol. Further details
+      and implementation specifics should be provided in the supporting documentation and code
+      libraries.
+
+
+0x4n6                     Standards Track                     [Page 6]
+
+RFC 1337                    RFC R-Type               Octobre 2023
+
+
+   4b.  Player events
+
+         On the client-side, players have the capability to execute va-
+         rious actions within the game. With each player action, the 
+         client is required to transmit a specific event payload to 
+         the server, providing essential information about the action
+         performed. The structure of this payload begins with a 4-byte
+         element from the EVENT enumeration, as elaborated below:
+
+           **EVENT Enumeration:**
+
+         The EVENT enumeration defines the following player actions:
+
+         - **MOVE Event:**
+
+            When a player intends to move within the game (either left,
+            right, up, or down), the client MUST include an additional
+            4-byte element from the DIRECTION enumeration immediately
+            following the EVENT element. Therefore, if the player ini-
+            tiates a move action, the payload MUST be 8 bytes in length.
+
+            **DIRECTION Enumeration:**
+
+            The DIRECTION enumeration specifies the movement directions
+            as follows:
+
+               - LEFT
+               - RIGHT
+               - UP
+               - DOWN
+
+         - **SHOOT Event:**
+
+            If a player wishes to shoot within the game, the payload for
+            this action MUST be 4 bytes long.
+
+         - **PAUSE/RESUME Event:**
+
+            In the event that a player desires to temporarily suspend their
+            session, triggering a pause in the game for all participants,
+            the PAUSE/RESUME event is employed.
+
+         - **QUIT Event:**
+
+            Should a player decide to exit the game, the client MUST notify
+            the server using a 4-byte payload specifically indicating the
+            QUIT event. Following this, the client MAY exit without waiting
+            for a response from the server.
+
+            Additional Details:
+
+            For the MOVE event, the client can precisely convey the intended
+            direction of movement (left, right, up, or down), allowing for
+            responsive gameplay.
+
+            The SHOOT event enables players to engage in combat, with the
+            simplicity of a compact 4-byte payload.
+
+            The PAUSE/RESUME event introduces a unique feature by suspending
+            the game at all sides, even if the player returns later to resume.
+            This functionality ensures fairness and continuity in multiplayer
+            sessions.
+
+            The QUIT event provides players with the flexibility to exit the
+            game gracefully, with the client notifying the server before exiting,
+            allowing for appropriate handling of player disconnections.
+
+            In summary, these event payloads enhance player interaction,
+            strategy,and control within the game, contributing to a dynamic
+            and engaging gaming experience.
+
+
+
+0x4n6                     Standards Track                     [Page 6]
+
